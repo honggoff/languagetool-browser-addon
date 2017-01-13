@@ -471,7 +471,7 @@ function handleCheckResult(response, tabs, callback) {
 }
 
 function startCheckMaybeWithWarning(tabs) {
-    getStorage().get({
+    let items = {
             apiServerUrl: serverUrl,
             ignoreQuotedLines: ignoreQuotedLines,
             motherTongue: motherTongue,
@@ -481,58 +481,57 @@ function startCheckMaybeWithWarning(tabs) {
             caVariant: "ca-ES",
             allowRemoteCheck: false,
             usageCounter: 0
-        }, function(items) {
-            serverUrl = items.apiServerUrl;
-            if (serverUrl === 'https://languagetool.org:8081/') {
-                // This is migration code - users of the old version might have
-                // the old URL of the v1 API in their settings, force them to use
-                // the v2 JSON API, as this is what this extension supports now:
-                //console.log("Replacing old serverUrl " + serverUrl + " with " + defaultServerUrl);
-                // -> http://stackoverflow.com/questions/12229544/what-can-cause-a-chrome-browser-extension-to-crash
-                serverUrl = defaultServerUrl;
-            }
-            ignoreQuotedLines = items.ignoreQuotedLines;
-            motherTongue = items.motherTongue;
-            if (items.enVariant) {
-                preferredVariants.push(items.enVariant);
-            }
-            if (items.deVariant) {
-                preferredVariants.push(items.deVariant);
-            }
-            if (items.ptVariant) {
-                preferredVariants.push(items.ptVariant);
-            }
-            if (items.caVariant) {
-                preferredVariants.push(items.caVariant);
-            }
-            if (items.allowRemoteCheck === true) {
+    };
+    serverUrl = items.apiServerUrl;
+    if (serverUrl === 'https://languagetool.org:8081/') {
+        // This is migration code - users of the old version might have
+        // the old URL of the v1 API in their settings, force them to use
+        // the v2 JSON API, as this is what this extension supports now:
+        //console.log("Replacing old serverUrl " + serverUrl + " with " + defaultServerUrl);
+        // -> http://stackoverflow.com/questions/12229544/what-can-cause-a-chrome-browser-extension-to-crash
+        serverUrl = defaultServerUrl;
+    }
+    ignoreQuotedLines = items.ignoreQuotedLines;
+    motherTongue = items.motherTongue;
+    if (items.enVariant) {
+        preferredVariants.push(items.enVariant);
+    }
+    if (items.deVariant) {
+        preferredVariants.push(items.deVariant);
+    }
+    if (items.ptVariant) {
+        preferredVariants.push(items.ptVariant);
+    }
+    if (items.caVariant) {
+        preferredVariants.push(items.caVariant);
+    }
+    if (items.allowRemoteCheck === true) {
+        doCheck(tabs);
+        let newCounter = items.usageCounter + 1;
+        getStorage().set({'usageCounter': newCounter}, function() {});
+        chrome.runtime.setUninstallURL("https://languagetool.org/webextension/uninstall.php");
+    } else {
+        var message = "<p>";
+        if (serverUrl === defaultServerUrl) {
+            message += chrome.i18n.getMessage("privacyNoteForDefaultServer", ["https://languagetool.org", "https://languagetool.org/privacy/"]);
+        } else {
+            message += chrome.i18n.getMessage("privacyNoteForOtherServer", serverUrl);
+        }
+        message += '</p>';
+        message += '<ul>' +
+                    '  <li><a class="privacyLink" id="confirmCheck" href="#">' + chrome.i18n.getMessage("continue") + '</a></li>' +
+                    '  <li><a class="privacyLink" id="cancelCheck" href="#">' + chrome.i18n.getMessage("cancel") + '</a></li>' +
+                    '</ul>';
+        renderStatus(message);
+        document.getElementById("confirmCheck").addEventListener("click", function() {
+            getStorage().set({
+                allowRemoteCheck: true
+            }, function () {
                 doCheck(tabs);
-                let newCounter = items.usageCounter + 1;
-                getStorage().set({'usageCounter': newCounter}, function() {});
-                chrome.runtime.setUninstallURL("https://languagetool.org/webextension/uninstall.php");
-            } else {
-                var message = "<p>";
-                if (serverUrl === defaultServerUrl) {
-                    message += chrome.i18n.getMessage("privacyNoteForDefaultServer", ["https://languagetool.org", "https://languagetool.org/privacy/"]);
-                } else {
-                    message += chrome.i18n.getMessage("privacyNoteForOtherServer", serverUrl);
-                }
-                message += '</p>';
-                message += '<ul>' +
-                           '  <li><a class="privacyLink" id="confirmCheck" href="#">' + chrome.i18n.getMessage("continue") + '</a></li>' +
-                           '  <li><a class="privacyLink" id="cancelCheck" href="#">' + chrome.i18n.getMessage("cancel") + '</a></li>' +
-                           '</ul>';
-                renderStatus(message);
-                document.getElementById("confirmCheck").addEventListener("click", function() {
-                    getStorage().set({
-                        allowRemoteCheck: true
-                    }, function () {
-                        doCheck(tabs);
-                    });
-                });
-                document.getElementById("cancelCheck").addEventListener("click", function() { self.close(); });
-            }
+            });
         });
+        document.getElementById("cancelCheck").addEventListener("click", function() { self.close(); });
+    }
 }
 
 function doCheck(tabs) {
